@@ -2,6 +2,7 @@ package dbf
 
 import (
 	"errors"
+	// "log"
 	"os"
 	"strings"
 	"time"
@@ -127,6 +128,8 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 			err = dt.AddBoolField(fieldName)
 		case 'D':
 			err = dt.AddDateField(fieldName)
+		default:
+			err = dt.AddTextField(fieldName, s[offset+16])
 		}
 
 		if err != nil {
@@ -246,6 +249,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) {
 }
 
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
+	// log.Println("row", row, "index", fieldIndex)
 	offset := int(dt.headerSize)
 	recordLength := int(dt.recordLength)
 
@@ -273,6 +277,7 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
 
 // FieldValueByName retuns the value of a field given row number and fieldName provided.
 func (dt *DbfTable) FieldValueByName(row int, fieldName string) string {
+	// log.Println("row", row, "field", fieldName)
 	fieldName = strings.ToUpper(fieldName)
 	fieldIndex, ok := dt.fieldMap[fieldName]
 	if !ok {
@@ -385,6 +390,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length, prec uint
 	df.fieldStore[16] = length
 	df.fieldStore[17] = prec
 	dt.fields = append(dt.fields, *df)
+	// log.Println("dt.fields[", len(dt.fields)-1, "] =", df.Name)
 
 	if !dt.loading {
 		dt.updateHeader()
