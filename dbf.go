@@ -2,8 +2,9 @@ package dbf
 
 import (
 	"errors"
-	// "log"
+	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,6 +37,8 @@ type DbfTable struct {
 	loading bool
 	// keeps the dbase table in memory as byte array
 	dataStore []byte
+	// keeps the dbase memo data in memory as a byte array
+	memoStore []byte
 }
 
 type DbfField struct {
@@ -86,7 +89,7 @@ func (df *DbfField) SetFieldName(fieldName string) {
 
 // LoadFile load dBase III+ from file.
 func LoadFile(fileName string) (table *DbfTable, err error) {
-	s, err := readFile(fileName)
+	data, memo, err := readFile(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -94,18 +97,19 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 	dt := new(DbfTable)
 	dt.loading = true
 	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
+	dt.dataStore = data
+	dt.memoStore = memo
 
 	// read dbase table header information
-	dt.fileSignature = s[0]
-	dt.updateYear = s[1]
-	dt.updateMonth = s[2]
-	dt.updateDay = s[3]
-	dt.numberOfRecords = uint32(s[4]) | (uint32(s[5]) << 8) | (uint32(s[6]) << 16) | (uint32(s[7]) << 24)
-	dt.headerSize = uint16(s[8]) | (uint16(s[9]) << 8)
-	dt.recordLength = uint16(s[10]) | (uint16(s[11]) << 8)
+	dt.fileSignature = data[0]
+	dt.updateYear = data[1]
+	dt.updateMonth = data[2]
+	dt.updateDay = data[3]
+	dt.numberOfRecords = uint32(data[4]) | (uint32(data[5]) << 8) | (uint32(data[6]) << 16) | (uint32(data[7]) << 24)
+	dt.headerSize = uint16(data[8]) | (uint16(data[9]) << 8)
+	dt.recordLength = uint16(data[10]) | (uint16(data[11]) << 8)
 
-	// create fieldMap to taranslate field name to index
+	// create fieldMap to translate field name to index
 	dt.fieldMap = make(map[string]int)
 
 	// Number of fields in dbase table
@@ -115,21 +119,25 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 	for i := 0; i < int(dt.numberOfFields); i++ {
 		offset := (i * 32) + 32
 
-		fieldName := strings.Trim(string(s[offset:offset+10]), string([]byte{0}))
+		fieldName := strings.Trim(string(data[offset:offset+10]), string([]byte{0}))
 		dt.fieldMap[fieldName] = i
 
 		var err error
-		switch s[offset+11] {
+		switch data[offset+11] {
 		case 'C':
-			err = dt.AddTextField(fieldName, s[offset+16])
+			err = dt.AddTextField(fieldName, data[offset+16])
 		case 'N':
-			err = dt.AddNumberField(fieldName, s[offset+16], s[offset+17])
+			err = dt.AddNumberField(fieldName, data[offset+16], data[offset+17])
 		case 'L':
 			err = dt.AddBoolField(fieldName)
 		case 'D':
 			err = dt.AddDateField(fieldName)
+		case 'M':
+			err = dt.AddMemoField(fieldName)
+
 		default:
-			err = dt.AddTextField(fieldName, s[offset+16])
+			log.Println("Unknown field type, defaulting to text", string(data[offset+11]), fieldName)
+			err = dt.AddTextField(fieldName, data[offset+16])
 		}
 
 		if err != nil {
@@ -251,6 +259,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) {
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
 	offset := int(dt.headerSize)
 	recordLength := int(dt.recordLength)
+	field := dt.fields[fieldIndex]
 
 	offset = offset + (row * recordLength)
 	recordOffset := 1
@@ -263,15 +272,36 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
 		}
 	}
 
-	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].Length))]
+	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(field.Length))]
 	for i := 0; i < len(temp); i++ {
 		if temp[i] == 0x00 {
 			temp = temp[0:i]
 			break
 		}
 	}
-	s := string(temp)
-	return strings.TrimSpace(s)
+	value := strings.TrimSpace(string(temp))
+
+	if field.Type != "M" || value == "" {
+		return value
+	}
+
+	return dt.readMemoBlock(value)
+}
+
+func (dt *DbfTable) readMemoBlock(indexStr string) string {
+	blockIndex, err := strconv.Atoi(indexStr)
+	if err != nil {
+		log.Println("Invalid memo block index", indexStr, err)
+		return ""
+	}
+
+	for i := blockIndex * 512; i < len(dt.memoStore); i++ {
+		if dt.memoStore[i] == 0x1A {
+			return string(dt.memoStore[blockIndex*512 : i])
+		}
+	}
+
+	return ""
 }
 
 // FieldValueByName retuns the value of a field given row number and fieldName provided.
@@ -343,6 +373,10 @@ func (dt *DbfTable) AddDateField(fieldName string) error {
 	return dt.addField(fieldName, 'D', 8, 0)
 }
 
+func (dt *DbfTable) AddMemoField(fieldName string) error {
+	return dt.addField(fieldName, 'M', 10, 0)
+}
+
 // NumRecords return number of rows in dbase table.
 func (dt *DbfTable) NumRecords() int {
 	return int(dt.numberOfRecords)
@@ -382,6 +416,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length, prec uint
 	// D (Date) 		Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
 	// N (Numeric) 		- . 0 1 2 3 4 5 6 7 8 9
 	// L (Logical) 		? Y y N n T t F f (? when not initialized).
+	// M (Memo) Pointer to a block in the corresponding memo file
 	df.fieldStore[11] = fieldType
 
 	// length and precision of the field

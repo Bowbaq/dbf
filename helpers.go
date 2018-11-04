@@ -1,9 +1,10 @@
 package dbf
 
 import (
-	"io"
+	"io/ioutil"
 	"os"
-	//"fmt"
+	"path/filepath"
+	"strings"
 )
 
 // appendSlice data[]byte to slice and returns the new byte slice.
@@ -13,24 +14,42 @@ func appendSlice(slice, data []byte) []byte {
 	return slice
 }
 
-func readFile(filename string) ([]byte, error) {
+func readFile(filename string) ([]byte, []byte, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer f.Close()
 
-	d, err := f.Stat()
+	data, err := ioutil.ReadAll(f)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	buf := make([]byte, d.Size())
-	_, err = io.ReadFull(f, buf)
-	if err != nil {
-		return nil, err
+	// Look for associated dbt file
+	var (
+		memo []byte
+
+		base = strings.TrimSuffix(filename, filepath.Ext(filename))
+	)
+	for _, dbtPath := range []string{base + ".dbt", base + ".DBT"} {
+		dbtFile, err := os.Open(dbtPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+
+			return nil, nil, err
+		}
+
+		memo, err = ioutil.ReadAll(dbtFile)
+		if err != nil {
+			return nil, nil, err
+		}
+		break
 	}
-	return buf, err
+
+	return data, memo, err
 }
 
 func uint32ToBytes(x uint32) []byte {
