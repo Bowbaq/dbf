@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type Iterator struct {
@@ -188,6 +189,9 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 			}
 
 			value := dt.FieldValueByName(row, fieldName)
+			if strings.TrimSpace(value) == "" {
+				continue
+			}
 
 			switch f.Kind() {
 			default:
@@ -198,6 +202,7 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+
 				intValue, err := strconv.ParseInt(value, 0, f.Type().Bits())
 				if err != nil {
 					return fmt.Errorf("fail to parse field '%s' type: %s value: %s",
