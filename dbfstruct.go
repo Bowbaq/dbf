@@ -176,14 +176,17 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		if f.CanSet() {
-			var fieldName string
-			alt := typeOfSpec.Field(i).Tag.Get("dbf")
-
+			dbfTag := typeOfSpec.Field(i).Tag.Get("dbf")
 			// ignore '-' tags
-			if alt == "-" {
+			if dbfTag == "-" {
 				continue
 			}
-			fieldName = typeOfSpec.Field(i).Name
+
+			fieldName := dbfTag
+			if fieldName == "" {
+				fieldName = typeOfSpec.Field(i).Name
+			}
+
 			value := dt.FieldValueByName(row, fieldName)
 
 			switch f.Kind() {
