@@ -206,8 +206,13 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 
 				intValue, err := strconv.ParseInt(value, 0, f.Type().Bits())
 				if err != nil {
-					return fmt.Errorf("fail to parse field '%s' type: %s value: %s",
-						fieldName, f.Type().String(), value)
+					// Sometimes ints are formatted as floats
+					floatValue, err := strconv.ParseFloat(value, 64)
+					if err != nil {
+						return fmt.Errorf("fail to parse field '%s' type: %s value: %s",
+							fieldName, f.Type().String(), value)
+					}
+					intValue = int64(floatValue)
 				}
 				f.SetInt(intValue)
 
