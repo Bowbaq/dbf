@@ -196,7 +196,7 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 
 			switch f.Kind() {
 			default:
-				panic("dbf: unsupported type for database table schema, use dash to omit")
+				return fmt.Errorf("unsupported type '%s' for database table schema, use dash to omit", f.Type())
 
 			case reflect.String:
 				f.SetString(value)
