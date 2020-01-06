@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Iterator struct {
@@ -224,6 +225,17 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 						fieldName, f.Type().String(), value)
 				}
 				f.SetFloat(floatValue)
+
+			case reflect.Struct:
+				if f.Type() != reflect.TypeOf(time.Time{}) {
+					return fmt.Errorf("unsupported type '%s' for database table schema, use dash to omit", f.Type())
+				}
+				date, err := time.Parse("20060102", value)
+				if err != nil {
+					return fmt.Errorf("fail to parse field '%s' type: %s value: %s",
+						fieldName, f.Type().String(), value)
+				}
+				f.Set(reflect.ValueOf(date))
 			}
 		}
 	}
