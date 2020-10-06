@@ -45,6 +45,7 @@ type DbfField struct {
 	Name       string
 	Type       string
 	Length     uint8
+	Precision  uint8
 	fieldStore [32]byte
 }
 
@@ -350,18 +351,18 @@ func (dt *DbfTable) AddTextField(fieldName string, length uint8) error {
 }
 
 // AddNumberField can be used to add int or float number fields.
-func (dt *DbfTable) AddNumberField(fieldName string, length uint8, prec uint8) error {
+func (dt *DbfTable) AddNumberField(fieldName string, length, prec uint8) error {
 	return dt.addField(fieldName, 'N', length, prec)
 }
 
 // AddIntField add int.
-func (dt *DbfTable) AddIntField(fieldName string) error {
-	return dt.addField(fieldName, 'N', 17, 0)
+func (dt *DbfTable) AddIntField(fieldName string, length uint8) error {
+	return dt.addField(fieldName, 'N', length, 0)
 }
 
 // AddFloatField add float.
-func (dt *DbfTable) AddFloatField(fieldName string) error {
-	return dt.addField(fieldName, 'N', 17, 8)
+func (dt *DbfTable) AddFloatField(fieldName string, length, prec uint8) error {
+	return dt.addField(fieldName, 'N', length, prec)
 }
 
 // Boolean field stores 't' or 'f' in the cell.
@@ -401,6 +402,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length, prec uint
 	df.Name = s
 	df.Type = string(fieldType)
 	df.Length = length
+	df.Precision = prec
 
 	slice := dt.convertToByteSlice(s, 10)
 	// Field name in ASCII (max 10 chracters)

@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/tadvi/dbf"
+
+	"github.com/Bowbaq/dbf"
 )
 
 type Note struct {

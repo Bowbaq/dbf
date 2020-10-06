@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tadvi/dbf"
+	"github.com/Bowbaq/dbf"
 )
 
 type FieldType int
@@ -25,7 +25,7 @@ func main() {
 		log.Fatal("Missing csv file name as first parameter")
 
 		log.Println("\nUsage:")
-		log.Println("    dbfload input.csv [output.dbf [field#=equals_value]]\n")
+		log.Println("    dbfload input.csv [output.dbf [field#=equals_value]]")
 	}
 
 	csvfile := os.Args[1]
@@ -122,7 +122,7 @@ func save(csvfile, dbffile, equals string) {
 		}
 	}
 	if truncCount > 0 {
-		log.Println("Number of truncated fields:", truncCount, "\n")
+		log.Println("Number of truncated fields:", truncCount)
 	}
 
 	db := dbf.New()

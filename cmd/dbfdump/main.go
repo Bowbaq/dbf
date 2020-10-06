@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/tadvi/dbf"
+	"github.com/Bowbaq/dbf"
 )
 
 func main() {
@@ -13,7 +13,7 @@ func main() {
 		log.Fatal("Missing dbf file name as first parameter")
 
 		log.Println("\nUsage:")
-		log.Println("    dbfdump input.dbf [output.csv]\n")
+		log.Println("    dbfdump input.dbf [output.csv]")
 	}
 	dbffile := os.Args[1]
 	csvfile := "output.csv"
