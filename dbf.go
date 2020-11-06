@@ -1,6 +1,7 @@
 package dbf
 
 import (
+	"bytes"
 	"errors"
 	"log"
 	"os"
@@ -247,6 +248,19 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) {
 			dt.dataStore[offset+recordOffset+i] = b[i]
 		}
 	case "N":
+		// Value from fmt.Sprintf("%f") has 6 digits of precision by default,
+		// truncate as appropriate
+		if precision := dt.fields[fieldIndex].Precision; precision > 0 {
+			if dot := bytes.Index(b, []byte(".")); dot > -1 {
+				cutoff := dot + int(precision) + 1
+				if cutoff > len(b)-1 {
+					cutoff = len(b) - 1
+				}
+
+				b = b[:cutoff]
+			}
+		}
+
 		for i := 0; i < fieldLength; i++ {
 			if i < len(b) {
 				dt.dataStore[offset+recordOffset+(fieldLength-i-1)] = b[(len(b)-1)-i]
