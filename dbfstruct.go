@@ -231,7 +231,9 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		if f.CanSet() {
-			dbfTag := typeOfSpec.Field(i).Tag.Get("dbf")
+			fieldType := typeOfSpec.Field(i)
+
+			dbfTag := fieldType.Tag.Get("dbf")
 			// ignore '-' tags
 			if dbfTag == "-" {
 				continue
@@ -239,10 +241,15 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 
 			fieldName := dbfTag
 			if fieldName == "" {
-				fieldName = typeOfSpec.Field(i).Name
+				fieldName = fieldType.Name
 			}
 
-			value := dt.FieldValueByName(row, fieldName)
+			var value string
+			if fieldType.Tag.Get("raw") != "" {
+				value = dt.RawFieldValueByName(row, fieldName)
+			} else {
+				value = dt.FieldValueByName(row, fieldName)
+			}
 			if strings.TrimSpace(value) == "" {
 				continue
 			}

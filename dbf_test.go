@@ -19,8 +19,8 @@ func TestNew(t *testing.T) {
 	db := New()
 	db.AddBoolField("boolean")
 	db.AddTextField("text", 40)
-	db.AddIntField("int")
-	db.AddFloatField("float")
+	db.AddIntField("int", 10)
+	db.AddFloatField("float", 8, 6)
 
 	addRecord(t, db)
 	checkCount(t, db, 1)

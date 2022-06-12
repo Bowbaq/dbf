@@ -3,6 +3,7 @@ package dbf
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -122,6 +123,10 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 		offset := (i * 32) + 32
 
 		fieldName := strings.Trim(string(data[offset:offset+10]), string([]byte{0}))
+		if fieldName == "" {
+			fieldName = fmt.Sprintf("MISSING%d", i)
+		}
+
 		dt.fieldMap[fieldName] = i
 
 		var err error
@@ -136,9 +141,8 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 			err = dt.AddDateField(fieldName)
 		case 'M':
 			err = dt.AddMemoField(fieldName)
-
 		default:
-			log.Println("Unknown field type, defaulting to text", string(data[offset+11]), fieldName)
+			log.Printf("Unknown field type `%v` for field `%v`, defaulting to text", string(data[offset+11]), fieldName)
 			err = dt.AddTextField(fieldName, data[offset+16])
 		}
 
@@ -226,7 +230,6 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) {
 	offset := dt.getRowOffset(row)
 	recordOffset := 1
 
-	//fmt.Println("total fields: ", dt.fields)
 	for i := 0; i < len(dt.fields); i++ {
 		if i == fieldIndex {
 			break
@@ -253,12 +256,21 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) {
 		if precision := dt.fields[fieldIndex].Precision; precision > 0 {
 			if dot := bytes.Index(b, []byte(".")); dot > -1 {
 				cutoff := dot + int(precision) + 1
-				if cutoff > len(b)-1 {
-					cutoff = len(b) - 1
+				if cutoff > len(b) {
+					cutoff = len(b)
 				}
 
 				b = b[:cutoff]
 			}
+		}
+
+		// If the number is too big to fit in the field, truncate from the right
+		if len(b) > fieldLength {
+			if dot := bytes.Index(b, []byte(".")); dot > fieldLength {
+				log.Printf("ERROR: trying to store %s in field of size %d", string(b), fieldLength)
+			}
+
+			b = b[:fieldLength]
 		}
 
 		for i := 0; i < fieldLength; i++ {
@@ -271,7 +283,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) {
 	}
 }
 
-func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
+func (dt *DbfTable) RawFieldValue(row int, fieldIndex int) string {
 	offset := int(dt.headerSize)
 	recordLength := int(dt.recordLength)
 	field := dt.fields[fieldIndex]
@@ -294,13 +306,21 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
 			break
 		}
 	}
-	value := strings.TrimSpace(string(temp))
+	value := string(temp)
 
-	if field.Type != "M" || value == "" {
+	if field.Type != "M" {
 		return value
 	}
 
-	return dt.readMemoBlock(value)
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+
+	return dt.readMemoBlock(strings.TrimSpace(value))
+}
+
+func (dt *DbfTable) FieldValue(row int, fieldIndex int) string {
+	return strings.TrimSpace(dt.RawFieldValue(row, fieldIndex))
 }
 
 func (dt *DbfTable) readMemoBlock(indexStr string) string {
@@ -319,14 +339,26 @@ func (dt *DbfTable) readMemoBlock(indexStr string) string {
 	return ""
 }
 
-// FieldValueByName retuns the value of a field given row number and fieldName provided.
+// FieldValueByName returns the value of a field given row number and fieldName provided.
 func (dt *DbfTable) FieldValueByName(row int, fieldName string) string {
 	fieldName = strings.ToUpper(fieldName)
 	fieldIndex, ok := dt.fieldMap[fieldName]
 	if !ok {
 		panic("Field name '" + fieldName + "' does not exist")
 	}
+
 	return dt.FieldValue(row, fieldIndex)
+}
+
+// RawFieldValueByName returns the untrimmed value of a field given row number and fieldName provided.
+func (dt *DbfTable) RawFieldValueByName(row int, fieldName string) string {
+	fieldName = strings.ToUpper(fieldName)
+	fieldIndex, ok := dt.fieldMap[fieldName]
+	if !ok {
+		panic("Field name '" + fieldName + "' does not exist")
+	}
+
+	return dt.RawFieldValue(row, fieldIndex)
 }
 
 // InsertRecord tries to reuse deleted records, and only then add new record to the
