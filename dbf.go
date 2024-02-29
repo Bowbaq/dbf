@@ -166,7 +166,9 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 // SaveFile dbf file.
 func (dt *DbfTable) SaveFile(filename string) error {
 	// don't forget to add dbase end of file marker which is 1Ah
-	dt.dataStore = appendSlice(dt.dataStore, []byte{0x1A})
+	if dt.dataStore[len(dt.dataStore)-1] != 0x1A {
+		dt.dataStore = appendSlice(dt.dataStore, []byte{0x1A})
+	}
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
