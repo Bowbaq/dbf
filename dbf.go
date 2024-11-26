@@ -53,7 +53,7 @@ type DbfField struct {
 
 // Create a new dbase table from the scratch
 func New() *DbfTable {
-	// Create and pupulate DbaseTable struct
+	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 
 	// read dbase table header information
@@ -96,7 +96,7 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// Create and pupulate DbaseTable struct
+	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 	dt.loading = true
 	// set DbfTable dataStore slice that will store the complete file in memory
