@@ -85,6 +85,11 @@ func (dt *DbfTable) Create(spec interface{}) error {
 			fieldName = typeOfSpec.Field(i).Name
 		}
 
+		// If dbf tag has options (like omitempty), extract just the field name
+		if options := strings.Split(dbfTag, ","); len(options) > 1 {
+			fieldName = options[0]
+		}
+
 		var size uint8
 		dbfSizeTag := typeOfSpec.Field(i).Tag.Get("size")
 		if dbfSizeTag != "" && dbfSizeTag != "-" {
@@ -181,6 +186,26 @@ func (dt *DbfTable) Write(row int, spec interface{}) (int, error) {
 			fieldName = typeOfSpec.Field(i).Name
 		}
 
+		// Check for omitempty tag
+		shouldOmitEmpty := false
+		options := strings.Split(dbfTag, ",")
+		if len(options) > 1 {
+			for _, opt := range options[1:] {
+				if opt == "omitempty" {
+					shouldOmitEmpty = true
+					break
+				}
+			}
+
+			// Update fieldName to just use the name part without options
+			fieldName = options[0]
+		}
+
+		// Skip this field if it should be omitted when empty and its value is empty
+		if shouldOmitEmpty && isEmptyValue(f) {
+			continue
+		}
+
 		val := ""
 		switch f.Kind() {
 
@@ -216,6 +241,19 @@ func (dt *DbfTable) Write(row int, spec interface{}) (int, error) {
 	return row, nil
 }
 
+// isEmptyValue returns whether the given value is the zero value for its type.
+// Uses reflect.DeepEqual for simplicity.
+func isEmptyValue(v reflect.Value) bool {
+	// Special case for time.Time since DeepEqual doesn't handle it well
+	if v.Type() == reflect.TypeOf(time.Time{}) {
+		return v.Interface().(time.Time).IsZero()
+	}
+
+	// Create zero value of same type and compare
+	zero := reflect.Zero(v.Type())
+	return reflect.DeepEqual(v.Interface(), zero.Interface())
+}
+
 // Read data into the spec from DbfTable.
 func (dt *DbfTable) Read(row int, spec interface{}) error {
 	v := reflect.ValueOf(spec)
@@ -242,6 +280,11 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 			fieldName := dbfTag
 			if fieldName == "" {
 				fieldName = fieldType.Name
+			}
+
+			// If dbf tag has options (like omitempty), extract just the field name
+			if options := strings.Split(dbfTag, ","); len(options) > 1 {
+				fieldName = options[0]
 			}
 
 			var value string

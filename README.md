@@ -1,4 +1,3 @@
-
 #### dbf dBase III+ library for Go
 
 Package for working with dBase III plus database files.
@@ -8,6 +7,24 @@ Default encoding is UTF-8.
 2. Once table is created and rows added to it, table structure can not be modified.
 3. Working with reflection-via-struct interface is easier and produces less verbose code.
 4. Use Iterator to iterate over table since it skips deleted rows.
+
+### Struct Tags
+
+When using the struct interface, you can use struct tags to customize field mapping:
+
+```go
+type Person struct {
+    Name    string    `dbf:"NAME"`              // Map to NAME field
+    Age     int       `dbf:"AGE,omitempty"`     // Map to AGE field, omit if zero
+    Created time.Time `dbf:"CREATED"`           // Map to CREATED field
+}
+```
+
+The `omitempty` tag option works similarly to the encoding/json package.
+When omitempty is specified for a field, that field will only be written
+if its value is not the zero value for its type.
+
+### Usage
 
 Typical usage
 db := dbf.New() or dbf.LoadFile(filename)
@@ -29,4 +46,3 @@ Look into cmd directory for examples of use and basic tools to load and export i
 ## License
 
 Copyright (C) Tad Vizbaras. Released under MIT license.
-

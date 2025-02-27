@@ -3,6 +3,7 @@ package dbf
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 const tempdbf = "temp.dbf"
@@ -72,6 +73,156 @@ func TestNewStruct(t *testing.T) {
 	checkCount(t, db, 4)
 	delRecord(t, db, 2)
 	checkCount(t, db, 3)
+}
+
+func TestOmitEmpty(t *testing.T) {
+	temp, err := os.CreateTemp("", "test_dbf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(temp.Name())
+	temp.Close()
+
+	type TestStruct struct {
+		Name      string    `dbf:"NAME"`
+		Age       int       `dbf:"AGE,omitempty"`
+		Active    bool      `dbf:"ACTIVE,omitempty"`
+		Rate      float64   `dbf:"RATE,omitempty"`
+		CreatedAt time.Time `dbf:"CREATED,omitempty"`
+	}
+
+	// Create a new table
+	dt := New()
+	if err := dt.Create(TestStruct{}); err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
+
+	// Test with zero values
+	zeroRecord := TestStruct{
+		Name: "Zero Values",
+		// Leave all omitempty fields as zero values
+	}
+	if _, err := dt.Append(zeroRecord); err != nil {
+		t.Fatalf("Failed to append zero record: %v", err)
+	}
+
+	// Test with non-zero values
+	fullRecord := TestStruct{
+		Name:      "Full Record",
+		Age:       30,
+		Active:    true,
+		Rate:      45.5,
+		CreatedAt: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+	if _, err := dt.Append(fullRecord); err != nil {
+		t.Fatalf("Failed to append full record: %v", err)
+	}
+
+	// Test with some non-zero values
+	partialRecord := TestStruct{
+		Name:   "Partial Record",
+		Age:    25,
+		Active: true,
+		// Rate and CreatedAt are zero values
+	}
+	if _, err := dt.Append(partialRecord); err != nil {
+		t.Fatalf("Failed to append partial record: %v", err)
+	}
+
+	// Save the table
+	if err := dt.SaveFile(temp.Name()); err != nil {
+		t.Fatalf("Failed to save file: %v", err)
+	}
+
+	// Load the table back and verify
+	loadedTable, err := LoadFile(temp.Name())
+	if err != nil {
+		t.Fatalf("Failed to load saved file: %v", err)
+	}
+
+	// Check values
+	it := loadedTable.NewIterator()
+
+	// Verify first record (zero values)
+	if it.Next() {
+		var record TestStruct
+		if err := it.Read(&record); err != nil {
+			t.Errorf("Failed to read first record: %v", err)
+		}
+
+		if record.Name != "Zero Values" {
+			t.Errorf("Expected Name 'Zero Values', got %q", record.Name)
+		}
+		// Zero values should still be read as zeros
+		if record.Age != 0 {
+			t.Errorf("Expected Age 0, got %d", record.Age)
+		}
+		if record.Active != false {
+			t.Errorf("Expected Active false, got %t", record.Active)
+		}
+		if record.Rate != 0 {
+			t.Errorf("Expected Rate 0, got %f", record.Rate)
+		}
+		if !record.CreatedAt.IsZero() {
+			t.Errorf("Expected CreatedAt zero, got %v", record.CreatedAt)
+		}
+	} else {
+		t.Error("Failed to iterate to first record")
+	}
+
+	// Verify second record (full values)
+	if it.Next() {
+		var record TestStruct
+		if err := it.Read(&record); err != nil {
+			t.Errorf("Failed to read second record: %v", err)
+		}
+
+		if record.Name != "Full Record" {
+			t.Errorf("Expected Name 'Full Record', got %q", record.Name)
+		}
+		if record.Age != 30 {
+			t.Errorf("Expected Age 30, got %d", record.Age)
+		}
+		if record.Active != true {
+			t.Errorf("Expected Active true, got %t", record.Active)
+		}
+		if record.Rate != 45.5 {
+			t.Errorf("Expected Rate 45.5, got %f", record.Rate)
+		}
+		expectedDate := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+		if record.CreatedAt.Format("20060102") != expectedDate.Format("20060102") {
+			t.Errorf("Expected CreatedAt %v, got %v", expectedDate, record.CreatedAt)
+		}
+	} else {
+		t.Error("Failed to iterate to second record")
+	}
+
+	// Verify third record (partial values)
+	if it.Next() {
+		var record TestStruct
+		if err := it.Read(&record); err != nil {
+			t.Errorf("Failed to read third record: %v", err)
+		}
+
+		if record.Name != "Partial Record" {
+			t.Errorf("Expected Name 'Partial Record', got %q", record.Name)
+		}
+		if record.Age != 25 {
+			t.Errorf("Expected Age 25, got %d", record.Age)
+		}
+		if record.Active != true {
+			t.Errorf("Expected Active true, got %t", record.Active)
+		}
+		// These should still be zero as they were omitted
+		if record.Rate != 0 {
+			t.Errorf("Expected Rate 0, got %f", record.Rate)
+		}
+		if !record.CreatedAt.IsZero() {
+			t.Errorf("Expected CreatedAt zero, got %v", record.CreatedAt)
+		}
+	} else {
+		t.Error("Failed to iterate to third record")
+	}
 }
 
 func checkCount(t *testing.T, db *DbfTable, count int) {
