@@ -53,7 +53,7 @@ type DbfField struct {
 
 // Create a new dbase table from the scratch
 func New() *DbfTable {
-	// Create and pupulate DbaseTable struct
+	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 
 	// read dbase table header information
@@ -96,7 +96,7 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// Create and pupulate DbaseTable struct
+	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 	dt.loading = true
 	// set DbfTable dataStore slice that will store the complete file in memory
@@ -165,8 +165,10 @@ func LoadFile(fileName string) (table *DbfTable, err error) {
 
 // SaveFile dbf file.
 func (dt *DbfTable) SaveFile(filename string) error {
-	// don't forget to add dbase end of file marker which is 1Ah
-	dt.dataStore = appendSlice(dt.dataStore, []byte{0x1A})
+	// ensure the last byte in the data store is the dBase end-of-file marker (0x1A)
+	if dt.dataStore[len(dt.dataStore)-1] != 0x1A {
+		dt.dataStore[len(dt.dataStore)-1] = 0x1A
+	}
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
