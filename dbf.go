@@ -60,7 +60,7 @@ func New() *DbfTable {
 	dt.fileSignature = 0x03
 	dt.updateYear = byte(time.Now().Year() % 100)
 	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().YearDay())
+	dt.updateDay = byte(time.Now().Day())
 	dt.numberOfRecords = 0
 	dt.headerSize = 32
 	dt.recordLength = 0
@@ -376,6 +376,7 @@ func (dt *DbfTable) InsertRecord() int {
 // AddRecord always adds new rows to the end of file.
 func (dt *DbfTable) AddRecord() int {
 	newRecord := make([]byte, dt.recordLength)
+	newRecord[0] = 0x20
 	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
 	// since row numbers are "0" based first we set newRecordNumber
@@ -510,7 +511,7 @@ func (dt *DbfTable) updateHeader() {
 
 	dt.recordLength = recordLength + 1 // dont forget to add "1" for deletion marker which is 20h
 
-	// update the lenght of each record
+	// update the length of each record
 	s = uint32ToBytes(uint32(dt.recordLength))
 	dt.dataStore[10] = s[0]
 	dt.dataStore[11] = s[1]

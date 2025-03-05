@@ -203,6 +203,8 @@ func (dt *DbfTable) Write(row int, spec interface{}) (int, error) {
 
 		// Skip this field if it should be omitted when empty and its value is empty
 		if shouldOmitEmpty && isEmptyValue(f) {
+			dt.SetFieldValueByName(row, fieldName, "")
+
 			continue
 		}
 
