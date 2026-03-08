@@ -441,7 +441,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length, prec uint
 	}
 
 	s := dt.getNormalizedFieldName(fieldName)
-	if dt.isFieldExist(s) {
+	if dt.HasField(s) {
 		return errors.New("Field with name '" + s + "' already exist!")
 	}
 
@@ -526,7 +526,8 @@ func (dt *DbfTable) Row(row int) []string {
 	return s
 }
 
-func (dt *DbfTable) isFieldExist(name string) bool {
+// HasField reports whether a field with the given name exists in the table.
+func (dt *DbfTable) HasField(name string) bool {
 	for i := 0; i < len(dt.fields); i++ {
 		if dt.fields[i].Name == name {
 			return true

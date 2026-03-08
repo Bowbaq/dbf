@@ -225,6 +225,39 @@ func TestOmitEmpty(t *testing.T) {
 	}
 }
 
+func TestOptionalField(t *testing.T) {
+	// Create a table with only NAME and AGE columns
+	dt := New()
+	dt.AddTextField("NAME", 40)
+	dt.AddIntField("AGE", 10)
+
+	row := dt.AddRecord()
+	dt.SetFieldValueByName(row, "NAME", "Alice")
+	dt.SetFieldValueByName(row, "AGE", "30")
+
+	// Read into a struct that has an optional SCORE field not present in the table
+	type Person struct {
+		Name  string  `dbf:"NAME"`
+		Age   int     `dbf:"AGE"`
+		Score float64 `dbf:"SCORE,optional"`
+	}
+
+	var p Person
+	if err := dt.Read(row, &p); err != nil {
+		t.Fatal(err)
+	}
+
+	if p.Name != "Alice" {
+		t.Errorf("Expected Name 'Alice', got %q", p.Name)
+	}
+	if p.Age != 30 {
+		t.Errorf("Expected Age 30, got %d", p.Age)
+	}
+	if p.Score != 0 {
+		t.Errorf("Expected Score 0 (zero value), got %f", p.Score)
+	}
+}
+
 func checkCount(t *testing.T, db *DbfTable, count int) {
 	c := 0
 	iter := db.NewIterator()

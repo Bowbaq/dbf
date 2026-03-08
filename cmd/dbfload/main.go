@@ -138,11 +138,11 @@ func save(csvfile, dbffile, equals string) {
 			db.AddBoolField(f.name)
 			log.Println("Bool field:", f.name)
 		case Int:
-			db.AddIntField(f.name)
-			log.Println("Int field:", f.name)
+			db.AddIntField(f.name, uint8(f.length))
+			log.Println("Int field:", f.name, "size:", f.length)
 		case Float:
-			db.AddFloatField(f.name)
-			log.Println("Float field:", f.name)
+			db.AddFloatField(f.name, uint8(f.length), 6)
+			log.Println("Float field:", f.name, "size:", f.length)
 		}
 	}
 	log.Println("------------------------")

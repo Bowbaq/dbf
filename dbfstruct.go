@@ -284,9 +284,20 @@ func (dt *DbfTable) Read(row int, spec interface{}) error {
 				fieldName = fieldType.Name
 			}
 
-			// If dbf tag has options (like omitempty), extract just the field name
+			// If dbf tag has options (like omitempty, optional), extract just the field name
+			var optional bool
 			if options := strings.Split(dbfTag, ","); len(options) > 1 {
 				fieldName = options[0]
+				for _, opt := range options[1:] {
+					if opt == "optional" {
+						optional = true
+					}
+				}
+			}
+
+			// Skip optional fields whose columns don't exist in the table
+			if optional && !dt.HasField(fieldName) {
+				continue
 			}
 
 			var value string
